@@ -1,4 +1,4 @@
-Documentation: Simple Banking System
+**Simple Banking System**
 1. Project Overview
 This project is a command-line based banking management system written in Python. It allows users to perform basic banking operations such as creating accounts, depositing and withdrawing money, checking balances, and viewing transaction histories. The system stores all account and transaction data persistently in local CSV files. It's designed to be simple and robust, with built-in validation for user inputs like email and mobile numbers.
 
