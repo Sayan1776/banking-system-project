@@ -1,83 +1,104 @@
-Documentation: Simple Banking System
-1. Project Overview
-This project is a command-line based banking management system written in Python. It allows users to perform basic banking operations such as creating accounts, depositing and withdrawing money, checking balances, and viewing transaction histories. The system stores all account and transaction data persistently in local CSV files. It's designed to be simple and robust, with built-in validation for user inputs like email and mobile numbers.
+Command-Line Banking System
+Version: 1.0
+Author: Sayan Paul
+Date: October 7, 2025
 
-2. Features
-The application supports the following features:
+1. Introduction
+This project is a command-line based banking application developed in Python. It simulates the basic functionalities of a bank, allowing users to create accounts, perform transactions, and check their financial details. The application is designed to be simple and robust, storing all user and transaction data locally in CSV files. It features a secure authentication system using a 4-digit PIN for all sensitive operations.
 
-Create New Account: Allows a new user to create a bank account with their name, email, mobile number, and address.
+2. Key Features
+Account Management:
 
-Input Validation:
+Create Account: Securely create a new bank account with unique email and mobile number validation.
 
-Ensures email addresses are in a valid format.
+Close Account: Permanently delete an existing bank account after confirmation.
 
-Ensures mobile numbers are exactly 10 digits.
+Secure Transactions:
 
-Checks for uniqueness to prevent duplicate accounts with the same email or mobile number.
+PIN Authentication: All account operations (deposit, withdrawal, balance check, etc.) are protected by a 4-digit PIN. PINs are securely stored using SHA-256 hashing.
 
-Validates that deposit/withdrawal amounts are positive numbers.
+Deposit: Add funds to an account.
 
-Deposit Money: Add funds to an existing account.
+Withdraw: Withdraw funds from an account, with checks to prevent overdrawing.
 
-Withdraw Money: Withdraw funds from an existing account, with a check for sufficient balance.
+Account Information:
 
-Check Balance: View the current balance of a specific account.
+Check Balance: View the current balance of an account.
 
-Transaction History: Display a log of all transactions for a given account.
+Transaction History: View a complete, timestamped log of all transactions for an account.
 
-Close Account: Securely remove an account from the system.
+Administrative Functions:
 
-Branch Manager Report: A special feature to view a summary of all accounts, including the total number of accounts and the cumulative balance in the bank.
+Branch Manager Report: An admin-level feature to view a summary of all accounts, including the total number of accounts and the total funds held by the bank.
 
-3. File Structure
-The system uses two CSV files to store data:
+3. How to Run the Application
+Prerequisites
+Python 3.x installed on your system.
 
-bank_accounts.csv: This file acts as the main database for all customer accounts. Each row represents a unique account.
+Setup and Execution
+Save the Code: Save the provided Python code as a file named banking_system.py.
 
-Columns: account_number, name, mail, mobile_num, address, amount
+Open a Terminal: Open a command prompt or terminal.
 
-transactions.csv: This file logs every transaction that occurs in the system, providing a complete audit trail.
+Navigate to the Directory: Use the cd command to navigate to the folder where you saved the banking_system.py file.
 
-Columns: account_number, transaction_type, amount, current_balance, timestamp
+cd path/to/your/project/folder
 
-4. How to Run the Application
-Save the code as a Python file (e.g., banking_system.py).
+Run the Script: Execute the script using the following command:
 
-Open a terminal or command prompt.
+python banking_system.py
 
-Navigate to the directory where you saved the file.
+First Time Use: The application will automatically create two files in the same directory: bank_accounts.csv and transactions.csv. You can start by creating a new account.
 
-Run the script using the command: python banking_system.py
+4. How It Works
+Data Storage
+The application uses two separate CSV files for data persistence:
 
-The main menu will be displayed, and you can interact with the system by entering the number corresponding to your choice.
+bank_accounts.csv: This file acts as the main database for all user accounts. It stores the following information for each user:
 
-5. Functions Reference
-Helper Functions
-log_transaction(acc_no, txn_type, amount, balance): Logs a single transaction to transactions.csv. It records the account number, transaction type (e.g., "Deposit", "Withdraw"), the amount of the transaction, the new balance, and a timestamp.
+account_number: A unique, randomly generated 10-digit number.
 
-find_account(acc_no): Searches bank_accounts.csv for an account matching the provided acc_no. Returns the account details as a list if found, otherwise returns None.
+name: The full name of the account holder.
 
-update_account(acc_no, new_balance): Updates the balance of a specific account in bank_accounts.csv. It reads all data, modifies the specific account's balance, and writes the entire dataset back to the file.
+mail: The user's unique email address.
 
-is_valid_email(email): Uses regular expressions (re module) to validate if the provided string is a valid email format.
+mobile_num: The user's unique 10-digit mobile number.
 
-is_valid_mobile(mobile): Checks if the mobile number is a string of exactly 10 digits.
+address: The physical address of the user.
 
-is_field_unique(column_index, value): A crucial validation function that checks if a given value (like an email or mobile number) already exists in a specific column_index of bank_accounts.csv.
+amount: The current balance in the account.
 
-Core Feature Functions
-create_account(): Prompts the user for personal details. It uses the validation helper functions to ensure the email and mobile number are valid and unique before creating a new account and logging the initial deposit.
+pin_hash: The SHA-256 hash of the user's 4-digit PIN for secure storage.
 
-deposit_money(acc_no): Handles the logic for depositing money into an account.
+transactions.csv: This file logs every single transaction that occurs in the system. Each log entry includes:
 
-withdraw_money(acc_no): Manages withdrawals, including checking for insufficient funds.
+account_number: The account associated with the transaction.
 
-check_balance(acc_no): Fetches and displays the current balance for an account.
+transaction_type: The type of transaction (e.g., "Account Created", "Deposit", "Withdraw", "Account Closed").
 
-transaction_history(acc_no): Reads transactions.csv and prints all entries corresponding to the given account number.
+amount: The amount involved in the transaction.
 
-branch_manager_report(): Calculates and displays aggregate data about all accounts in the bank.
+current_balance: The account balance after the transaction.
 
-close_account(acc_no): Removes an account from bank_accounts.csv after user confirmation. It logs this action in the transaction file.
+timestamp: The exact date and time the transaction occurred.
 
-main(): The primary function that runs the application loop, displays the menu, and calls the appropriate functions based on user input.
+Security
+Security is a key aspect of this application. Instead of storing user PINs in plain text, the program uses the SHA-256 hashing algorithm. When a user creates a PIN, it is immediately converted into a unique hash (a long string of characters). This hash is stored. When the user tries to log in, the PIN they enter is hashed again, and this new hash is compared to the stored one. This ensures that even if someone gains access to the bank_accounts.csv file, they cannot see the actual PINs.
+
+5. Code Overview
+The script is logically divided into three main sections:
+
+Helper Functions: This section contains utility functions that perform common tasks like clearing the screen, initializing files, finding accounts, logging transactions, validating input (email, mobile, PIN), and authenticating users. Using csv.DictReader and csv.DictWriter makes the code readable and easy to maintain.
+
+Core Features: This section contains the main logic for each banking feature, such as create_account(), deposit_money(), withdraw_money(), etc. These functions handle user interaction and data manipulation.
+
+Main Menu: The main() function serves as the entry point of the application. It runs the main program loop, displays the user menus, and calls the appropriate functions based on user input.
+
+6. Future Improvements
+Database Integration: Replace the CSV file system with a more robust and efficient database like SQLite or PostgreSQL to handle larger amounts of data and more complex queries.
+
+Money Transfer: Add a feature to allow users to transfer money from their account to another account within the bank.
+
+Object-Oriented Programming (OOP): Refactor the code into classes (e.g., Account, Bank, Transaction) to better organize the logic and make the system more scalable.
+
+Graphical User Interface (GUI): Develop a graphical interface using a library like Tkinter or PyQt to make the application more user-friendly.

@@ -1,2 +1,2 @@
-account_number,name,mail,mobile_num,address,amount
-2471341372,Sayan,685sayan@gmail.com,1234567890,kolkata,10000
+account_number,name,mail,mobile_num,address,amount,pin_hash
+9442450813,Sayan,abc@gmail.com,1234567880,namkhana,100,392e98bd37203b489ec2d73030efddd156949035a1dffede8c328ad3e9a69c22
