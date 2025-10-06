@@ -1,104 +1,110 @@
 Command-Line Banking System
-Version: 1.0
-Author: Sayan Paul
+Version: 2.0
+Author: Sayan
 Date: October 7, 2025
 
 1. Introduction
-This project is a command-line based banking application developed in Python. It simulates the basic functionalities of a bank, allowing users to create accounts, perform transactions, and check their financial details. The application is designed to be simple and robust, storing all user and transaction data locally in CSV files. It features a secure authentication system using a 4-digit PIN for all sensitive operations.
+    This project is a command-line based banking application developed in Python. It simulates the core functionalities of a modern bank, built upon a robust Object-Oriented Programming (OOP) architecture and a reliable SQLite database for data persistence.
+
+    The application allows users to securely manage their finances through a simple and intuitive interface. All sensitive operations are protected by a hashed PIN, and all transactions are atomic, ensuring data integrity.
 
 2. Key Features
-Account Management:
+    Secure Account Management:
 
-Create Account: Securely create a new bank account with unique email and mobile number validation.
+    Create Account: Securely create a new bank account with unique email and mobile number validation.
 
-Close Account: Permanently delete an existing bank account after confirmation.
+    Close Account: Permanently delete an existing bank account and its associated transactions.
 
-Secure Transactions:
+    Atomic Transactions:
 
-PIN Authentication: All account operations (deposit, withdrawal, balance check, etc.) are protected by a 4-digit PIN. PINs are securely stored using SHA-256 hashing.
+    PIN Authentication: All account operations are protected by a 4-digit PIN, which is securely stored using a SHA-256 hash.
 
-Deposit: Add funds to an account.
+    Deposit & Withdraw: Add or remove funds from an account.
 
-Withdraw: Withdraw funds from an account, with checks to prevent overdrawing.
+    Money Transfer: Atomically transfer funds between two accounts. The system guarantees that if any part of the transfer fails, the entire transaction is rolled back, preventing data corruption.
 
-Account Information:
+    Account Information:
 
-Check Balance: View the current balance of an account.
+    Check Balance: Instantly view the current account balance.
 
-Transaction History: View a complete, timestamped log of all transactions for an account.
+    Transaction History: View a complete, timestamped log of all transactions, sorted from most recent to oldest.
 
-Administrative Functions:
+    Administrative Functions:
 
-Branch Manager Report: An admin-level feature to view a summary of all accounts, including the total number of accounts and the total funds held by the bank.
+    Branch Manager Report: View a high-level summary of the bank's health, including the total number of accounts and the total funds under management.
 
 3. How to Run the Application
-Prerequisites
-Python 3.x installed on your system.
+    Prerequisites
+    Python 3.x installed on your system.
 
-Setup and Execution
-Save the Code: Save the provided Python code as a file named banking_system.py.
+    Setup and Execution
+    Save the Code: Save the provided Python code as a file named banking_system.py.
 
-Open a Terminal: Open a command prompt or terminal.
+    Open a Terminal: Open a command prompt or terminal in the same directory as the file.
 
-Navigate to the Directory: Use the cd command to navigate to the folder where you saved the banking_system.py file.
+    Run the Script: Execute the script using the following command:
 
-cd path/to/your/project/folder
+    "python banking_system.py"
 
-Run the Script: Execute the script using the following command:
-
-python banking_system.py
-
-First Time Use: The application will automatically create two files in the same directory: bank_accounts.csv and transactions.csv. You can start by creating a new account.
+    First Time Use: The application will automatically create a single database file named bank.db in the same directory. This file will contain all the application's data.
 
 4. How It Works
-Data Storage
-The application uses two separate CSV files for data persistence:
+    Architecture: Object-Oriented Programming (OOP)
+    The application is built using an OOP design, which organizes the code into logical, reusable components.
 
-bank_accounts.csv: This file acts as the main database for all user accounts. It stores the following information for each user:
+    Account Class: Represents a single bank account. This object holds all the data for one user (name, balance, etc.) and contains the methods to perform operations on that data (e.g., deposit(), withdraw(), authenticate()).
 
-account_number: A unique, randomly generated 10-digit number.
+    Bank Class: Acts as the central controller for the entire application. It manages the collection of all Account objects, handles the connection to the SQLite database, and contains the high-level logic for operations like creating accounts and transferring money.
 
-name: The full name of the account holder.
+    This class-based structure makes the code clean, scalable, and easy to maintain.
 
-mail: The user's unique email address.
+    Data Storage: SQLite Database
+    All application data is stored in a single, lightweight database file named bank.db. This is a professional and efficient alternative to using plain text files.
 
-mobile_num: The user's unique 10-digit mobile number.
+    The database contains two main tables:
 
-address: The physical address of the user.
+    accounts: Stores the primary information for each user account.
 
-amount: The current balance in the account.
+    account_number (PRIMARY KEY)
 
-pin_hash: The SHA-256 hash of the user's 4-digit PIN for secure storage.
+    name, mail, mobile_num, address
 
-transactions.csv: This file logs every single transaction that occurs in the system. Each log entry includes:
+    balance
 
-account_number: The account associated with the transaction.
+    pin_hash (The secure SHA-256 hash of the user's PIN)
 
-transaction_type: The type of transaction (e.g., "Account Created", "Deposit", "Withdraw", "Account Closed").
+    transactions: Provides a complete audit trail of every action taken.
 
-amount: The amount involved in the transaction.
+    id (PRIMARY KEY)
 
-current_balance: The account balance after the transaction.
+    account_number (FOREIGN KEY to the accounts table)
 
-timestamp: The exact date and time the transaction occurred.
+    transaction_type, details, amount
 
-Security
-Security is a key aspect of this application. Instead of storing user PINs in plain text, the program uses the SHA-256 hashing algorithm. When a user creates a PIN, it is immediately converted into a unique hash (a long string of characters). This hash is stored. When the user tries to log in, the PIN they enter is hashed again, and this new hash is compared to the stored one. This ensures that even if someone gains access to the bank_accounts.csv file, they cannot see the actual PINs.
+    current_balance, timestamp
 
-5. Code Overview
-The script is logically divided into three main sections:
+    This database structure ensures data integrity, efficiency, and allows for atomic transactions that cannot be corrupted.
 
-Helper Functions: This section contains utility functions that perform common tasks like clearing the screen, initializing files, finding accounts, logging transactions, validating input (email, mobile, PIN), and authenticating users. Using csv.DictReader and csv.DictWriter makes the code readable and easy to maintain.
+5. How to View the Database
+    The bank.db file is a binary file and cannot be opened with a normal text editor. To view the data inside, you need a specialized tool.
 
-Core Features: This section contains the main logic for each banking feature, such as create_account(), deposit_money(), withdraw_money(), etc. These functions handle user interaction and data manipulation.
+    Recommended Tool: The "SQLite" extension for Visual Studio Code.
 
-Main Menu: The main() function serves as the entry point of the application. It runs the main program loop, displays the user menus, and calls the appropriate functions based on user input.
+    How to Use:
+
+    Install the "SQLite" extension from the VS Code Marketplace.
+
+    Open the Command Palette (Ctrl+Shift+P).
+
+    Type and select SQLite: Open Database.
+
+    Choose your bank.db file.
+
+    A "SQLITE EXPLORER" tab will appear in your sidebar, allowing you to browse the accounts and transactions tables and see their data in a clean, spreadsheet-like view.
 
 6. Future Improvements
-Database Integration: Replace the CSV file system with a more robust and efficient database like SQLite or PostgreSQL to handle larger amounts of data and more complex queries.
+    Unit Testing: Implement automated tests using Python's unittest module to verify the correctness of each function and method.
 
-Money Transfer: Add a feature to allow users to transfer money from their account to another account within the bank.
+    Web API: Build a simple web API using a framework like Flask or FastAPI to expose the banking logic, allowing it to be used by a web or mobile front-end.
 
-Object-Oriented Programming (OOP): Refactor the code into classes (e.g., Account, Bank, Transaction) to better organize the logic and make the system more scalable.
-
-Graphical User Interface (GUI): Develop a graphical interface using a library like Tkinter or PyQt to make the application more user-friendly.
+    GUI: Develop a graphical user interface (GUI) using a library like Tkinter or PyQt to make the application more accessible to non-technical users.

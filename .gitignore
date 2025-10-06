@@ -1,0 +1,5 @@
+# Database file
+bank.db
+
+# Python cache
+__pycache__/

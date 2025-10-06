@@ -1,15 +1,13 @@
-import csv
+import sqlite3
 import random
 import datetime
 import re
 import hashlib
 import os
+import sys
 
 # --- Constants ---
-BANK_FILE = "bank_accounts.csv"
-TXN_FILE = "transactions.csv"
-ACCOUNT_HEADERS = ["account_number", "name", "mail", "mobile_num", "address", "amount", "pin_hash"]
-TXN_HEADERS = ["account_number", "transaction_type", "amount", "current_balance", "timestamp"]
+DATABASE_FILE = "bank.db"
 
 # ----------------- Helper Functions ----------------- #
 
@@ -17,282 +15,261 @@ def clear_screen():
     """Clears the console screen."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def initialize_files():
-    """Creates the necessary CSV files with headers if they don't exist."""
+def log_transaction(cursor, acc_no, txn_type, amount, balance, details=""):
+    """Logs a transaction to the database."""
+    timestamp = datetime.datetime.now()
     try:
-        with open(BANK_FILE, "x", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(ACCOUNT_HEADERS)
-    except FileExistsError:
-        pass # File already exists
+        cursor.execute("""
+            INSERT INTO transactions (account_number, transaction_type, details, amount, current_balance, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (acc_no, txn_type, details, amount, balance, timestamp))
+    except sqlite3.Error as e:
+        # This error is critical but shouldn't stop the main transaction from committing.
+        print(f"Warning: Failed to log transaction. {e}")
 
-    try:
-        with open(TXN_FILE, "x", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(TXN_HEADERS)
-    except FileExistsError:
-        pass # File already exists
+# ----------------- Object-Oriented Core ----------------- #
 
-def log_transaction(acc_no, txn_type, amount, balance):
-    """Logs a transaction to the transactions file."""
-    try:
-        with open(TXN_FILE, "a", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=TXN_HEADERS)
-            writer.writerow({
-                "account_number": acc_no,
-                "transaction_type": txn_type,
-                "amount": amount,
-                "current_balance": balance,
-                "timestamp": datetime.datetime.now()
-            })
-    except IOError as e:
-        print(f"Error logging transaction: {e}")
+class Account:
+    """Represents a single bank account, holding its data and operations."""
+    def __init__(self, account_number, name, mail, mobile_num, address, balance, pin_hash):
+        self.account_number = account_number
+        self.name = name
+        self.mail = mail
+        self.mobile_num = mobile_num
+        self.address = address
+        self.balance = int(balance)
+        self.pin_hash = pin_hash
 
-def find_account(acc_no):
-    """Finds an account by account number and returns the row data as a dictionary."""
-    acc_no = acc_no.strip()
-    try:
-        with open(BANK_FILE, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                if row['account_number'] == acc_no:
-                    return row
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        print(f"An error occurred while finding the account: {e}")
-    return None
-
-def update_all_accounts(accounts):
-    """Rewrites the entire bank file with the updated list of accounts."""
-    try:
-        with open(BANK_FILE, "w", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=ACCOUNT_HEADERS)
-            writer.writeheader()
-            writer.writerows(accounts)
-        return True
-    except Exception as e:
-        print(f"An error occurred while updating accounts: {e}")
-        return False
-
-def is_valid_email(email):
-    """Checks if the email format is valid using regex."""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email)
-
-def is_valid_mobile(mobile):
-    """Checks if the mobile number is 10 digits and contains only numbers."""
-    return mobile.isdigit() and len(mobile) == 10
-    
-def is_valid_pin(pin):
-    """Checks if the PIN is 4 digits."""
-    return pin.isdigit() and len(pin) == 4
-
-def is_field_unique(field_name, value):
-    """Checks if a value in a specific column of the bank file is unique."""
-    try:
-        with open(BANK_FILE, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                if row[field_name].strip() == value:
-                    return False  # Value exists, so not unique
-    except FileNotFoundError:
-        return True  # File doesn't exist, so the value is unique
-    return True # Value is unique
-
-def authenticate_user(account):
-    """Authenticates the user by asking for their PIN."""
-    pin = input("Enter your 4-digit PIN to confirm: ")
-    if not is_valid_pin(pin):
-        print("❌ Invalid PIN format. Must be 4 digits.")
-        return False
-        
-    hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
-    if hashed_pin == account['pin_hash']:
-        return True
-    print("❌ Incorrect PIN.")
-    return False
-
-# ----------------- Core Features ----------------- #
-
-def create_account():
-    """Creates a new bank account with validation and saves it to the CSV file."""
-    name = input("Enter your name: ")
-
-    while True:
-        mail = input("Enter your email-id: ")
-        if not is_valid_email(mail):
-            print("❌ Invalid email format. Please try again (e.g., user@example.com).")
-        elif not is_field_unique('mail', mail):
-            print("❌ This email is already registered. Please use another email.")
-        else:
-            break
-
-    while True:
-        mobile_num = input("Enter your 10-digit mobile number: ")
-        if not is_valid_mobile(mobile_num):
-            print("❌ Invalid mobile number. Please enter exactly 10 digits.")
-        elif not is_field_unique('mobile_num', mobile_num):
-            print("❌ This mobile number is already registered.")
-        else:
-            break
-            
-    while True:
-        pin = input("Create a 4-digit PIN for your account: ")
-        if is_valid_pin(pin):
-            pin_hash = hashlib.sha256(pin.encode()).hexdigest()
-            break
-        else:
-            print("❌ PIN must be exactly 4 digits.")
-
-    address = input("Enter your address: ")
-    account_number = str(random.randint(1000000000, 9999999999))
-    
-    while True:
-        try:
-            amount = int(input("Enter the initial deposit amount (must be >= 0): "))
-            if amount >= 0:
-                break
-            else:
-                print("❌ Initial deposit cannot be negative.")
-        except ValueError:
-            print("❌ Invalid amount. Please enter a number.")
-
-    new_account = {
-        "account_number": account_number, "name": name, "mail": mail,
-        "mobile_num": mobile_num, "address": address, "amount": amount, "pin_hash": pin_hash
-    }
-
-    try:
-        with open(BANK_FILE, "a", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=ACCOUNT_HEADERS)
-            writer.writerow(new_account)
-        log_transaction(account_number, "Account Created", amount, amount)
-        print(f"\n✅ Account created successfully! Your Account Number is {account_number}")
-    except Exception as e:
-        print(f"❌ Could not create account: {e}")
-
-
-def deposit_money(account):
-    """Deposits money into a specified account."""
-    try:
-        amount = int(input("Enter amount to deposit: "))
+    def deposit(self, amount):
+        """Updates the balance in memory. Does NOT commit to DB."""
         if amount <= 0:
             print("❌ Deposit amount must be positive.")
-            return
+            return False
+        self.balance += amount
+        return True
 
-        with open(BANK_FILE, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            accounts = list(reader)
-        
-        for acc in accounts:
-            if acc['account_number'] == account['account_number']:
-                new_balance = int(acc['amount']) + amount
-                acc['amount'] = new_balance
-                if update_all_accounts(accounts):
-                    log_transaction(account['account_number'], "Deposit", amount, new_balance)
-                    print(f"✅ Deposited {amount}. New Balance: {new_balance}")
-                break
-    except ValueError:
-        print("❌ Invalid amount entered.")
-
-def withdraw_money(account):
-    """Withdraws money from a specified account."""
-    try:
-        amount = int(input("Enter amount to withdraw: "))
+    def withdraw(self, amount):
+        """Updates the balance in memory. Does NOT commit to DB."""
         if amount <= 0:
             print("❌ Withdrawal amount must be positive.")
-            return
-            
-        current_balance = int(account['amount'])
-        if amount > current_balance:
+            return False
+        if amount > self.balance:
             print("❌ Insufficient balance.")
+            return False
+        self.balance -= amount
+        return True
+
+    def authenticate(self, pin):
+        """Hashes the provided pin and compares it to the stored hash."""
+        hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
+        return hashed_pin == self.pin_hash
+
+class Bank:
+    """Manages all accounts and database interactions."""
+    def __init__(self, db_file):
+        self.db_file = db_file
+        self.conn = sqlite3.connect(self.db_file)
+        self.conn.row_factory = sqlite3.Row # Allows accessing columns by name
+        self.cursor = self.conn.cursor()
+        self._create_tables()
+        self.accounts = self._load_accounts()
+
+    def _create_tables(self):
+        """Creates the database tables if they don't exist."""
+        try:
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS accounts (
+                    account_number TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    mail TEXT UNIQUE NOT NULL,
+                    mobile_num TEXT UNIQUE NOT NULL,
+                    address TEXT,
+                    balance INTEGER NOT NULL,
+                    pin_hash TEXT NOT NULL
+                )
+            ''')
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_number TEXT NOT NULL,
+                    transaction_type TEXT NOT NULL,
+                    details TEXT,
+                    amount INTEGER NOT NULL,
+                    current_balance INTEGER NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY (account_number) REFERENCES accounts (account_number)
+                )
+            ''')
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database Error: Could not create tables. {e}")
+            sys.exit(1)
+
+    def _load_accounts(self):
+        """Loads all accounts from the database into a dictionary of Account objects."""
+        accounts = {}
+        try:
+            self.cursor.execute("SELECT * FROM accounts")
+            rows = self.cursor.fetchall()
+            for row in rows:
+                acc = Account(**dict(row))
+                accounts[acc.account_number] = acc
+        except sqlite3.Error as e:
+            print(f"Database Error: Could not load accounts. {e}")
+            sys.exit(1)
+        return accounts
+    
+    def _commit_change(self, query, params=()):
+        """Executes a query and commits it. Generic helper for single operations."""
+        try:
+            self.cursor.execute(query, params)
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Database Error: {e}")
+            self.conn.rollback()
+            return False
+
+    def _insert_account(self, account):
+        """Inserts a new account object into the database."""
+        query = """
+            INSERT INTO accounts (account_number, name, mail, mobile_num, address, balance, pin_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        params = (
+            account.account_number, account.name, account.mail,
+            account.mobile_num, account.address, account.balance, account.pin_hash
+        )
+        return self._commit_change(query, params)
+    
+    def _delete_account_record(self, account_number):
+        """Deletes an account and its transactions from the database."""
+        self._commit_change("DELETE FROM transactions WHERE account_number = ?", (account_number,))
+        return self._commit_change("DELETE FROM accounts WHERE account_number = ?", (account_number,))
+
+    def find_account(self, acc_no):
+        return self.accounts.get(acc_no)
+
+    def create_account(self):
+        # ... (User input gathering is the same as the OOP version) ...
+        clear_screen()
+        print("--- Create New Bank Account ---")
+        name = input("Enter your name: ")
+        while True:
+            mail = input("Enter your email-id: ")
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', mail):
+                print("❌ Invalid email format.")
+            elif any(acc.mail == mail for acc in self.accounts.values()):
+                print("❌ This email is already registered.")
+            else: break
+        while True:
+            mobile_num = input("Enter your 10-digit mobile number: ")
+            if not (mobile_num.isdigit() and len(mobile_num) == 10):
+                print("❌ Invalid mobile number. Must be 10 digits.")
+            elif any(acc.mobile_num == mobile_num for acc in self.accounts.values()):
+                print("❌ This mobile number is already registered.")
+            else: break
+        while True:
+            pin = input("Create a 4-digit PIN for your account: ")
+            if pin.isdigit() and len(pin) == 4:
+                pin_hash = hashlib.sha256(pin.encode()).hexdigest()
+                break
+            else: print("❌ PIN must be exactly 4 digits.")
+        address = input("Enter your address: ")
+        while True:
+            try:
+                balance = int(input("Enter the initial deposit amount (>= 0): "))
+                if balance >= 0: break
+                else: print("❌ Initial deposit cannot be negative.")
+            except ValueError: print("❌ Invalid amount.")
+        account_number = str(random.randint(1000000000, 9999999999))
+        
+        new_account = Account(account_number, name, mail, mobile_num, address, balance, pin_hash)
+        
+        if self._insert_account(new_account):
+            self.accounts[account_number] = new_account
+            log_transaction(self.cursor, account_number, "Account Created", balance, balance)
+            self.conn.commit()
+            print(f"\n✅ Account created successfully! Your Account Number is {account_number}")
+        else:
+            print("❌ Failed to create account in database.")
+
+    def close_account(self, account):
+        confirm = input(f"Are you sure you want to close account {account.account_number}? (yes/no): ").lower()
+        if confirm != "yes":
+            print("❌ Account closure cancelled.")
             return
 
-        with open(BANK_FILE, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            accounts = list(reader)
-
-        for acc in accounts:
-            if acc['account_number'] == account['account_number']:
-                new_balance = current_balance - amount
-                acc['amount'] = new_balance
-                if update_all_accounts(accounts):
-                    log_transaction(account['account_number'], "Withdraw", amount, new_balance)
-                    print(f"✅ Withdrawn {amount}. New Balance: {new_balance}")
-                break
-    except ValueError:
-        print("❌ Invalid amount entered.")
-
-def check_balance(account):
-    """Checks and prints the balance of a specified account."""
-    print(f"💰 Current Balance: {account['amount']}")
-
-def transaction_history(account):
-    """Displays the transaction history for a specified account."""
-    print("📜 Transaction History:")
-    found = False
-    try:
-        with open(TXN_FILE, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                if row['account_number'] == account['account_number']:
-                    print(f"  - Type: {row['transaction_type']}, Amount: {row['amount']}, Balance: {row['current_balance']}, Time: {row['timestamp']}")
-                    found = True
-        if not found:
-            print("  No transactions found for this account.")
-    except FileNotFoundError:
-        print("❌ No transactions recorded yet.")
-
-def branch_manager_report():
-    """Provides a summary report of all accounts."""
-    try:
-        with open(BANK_FILE, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            accounts = list(reader)
+        if self._delete_account_record(account.account_number):
+            del self.accounts[account.account_number]
+            print(f"✅ Account {account.account_number} closed permanently.")
+        else:
+            print("❌ Error closing account.")
             
-            if not accounts:
-                print("No accounts in the bank yet.")
+    def transfer_money(self, source_account):
+        dest_acc_no = input("Enter the destination account number: ").strip()
+        if dest_acc_no == source_account.account_number:
+            print("❌ You cannot transfer money to your own account.")
+            return
+        dest_account = self.find_account(dest_acc_no)
+        if not dest_account:
+            print("❌ Destination account not found.")
+            return
+        try:
+            amount = int(input("Enter amount to transfer: "))
+            if amount <= 0:
+                print("❌ Transfer amount must be positive.")
                 return
+            if amount > source_account.balance:
+                print("❌ Insufficient balance for this transfer.")
+                return
+        except ValueError:
+            print("❌ Invalid amount entered.")
+            return
 
-            print("\n🏦 Branch Manager Report")
-            print("-----------------------")
-            print(f"Total Accounts: {len(accounts)}")
-            total_balance = sum(int(acc['amount']) for acc in accounts)
-            print(f"Total Balance in Bank: {total_balance}")
-            print("-----------------------")
+        # --- Atomic Transaction Starts Here ---
+        try:
+            # 1. Update balances in memory first for logging
+            source_account.balance -= amount
+            dest_account.balance += amount
             
-    except FileNotFoundError:
-        print("❌ No accounts file found.")
-    except Exception as e:
-        print(f"An error occurred while generating the report: {e}")
+            # 2. Execute both updates in the database
+            self.cursor.execute("UPDATE accounts SET balance = ? WHERE account_number = ?", (source_account.balance, source_account.account_number))
+            self.cursor.execute("UPDATE accounts SET balance = ? WHERE account_number = ?", (dest_account.balance, dest_account.account_number))
+            
+            # 3. Log both transactions
+            log_transaction(self.cursor, source_account.account_number, "Transfer Out", amount, source_account.balance, f"To: {dest_acc_no}")
+            log_transaction(self.cursor, dest_acc_no, "Transfer In", amount, dest_account.balance, f"From: {source_account.account_number}")
+            
+            # 4. Commit ONLY after all operations succeed
+            self.conn.commit()
+            print(f"✅ Successfully transferred {amount} to account {dest_acc_no}.")
 
-def close_account(account):
-    """Closes an account by removing it from the bank file."""
-    confirm = input(f"Are you sure you want to close account {account['account_number']}? This action is irreversible. (yes/no): ").lower()
-    if confirm != "yes":
-        print("❌ Account closure cancelled.")
-        return
+        except sqlite3.Error as e:
+            # 5. If any step fails, roll everything back
+            self.conn.rollback()
+            source_account.balance += amount # Revert in-memory changes too
+            dest_account.balance -= amount
+            print(f"❌ Transaction failed and has been rolled back: {e}")
 
-    try:
-        with open(BANK_FILE, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            # Read all accounts except the one to be deleted
-            remaining_accounts = [acc for acc in reader if acc['account_number'] != account['account_number']]
-
-        if update_all_accounts(remaining_accounts):
-            final_balance = account['amount']
-            log_transaction(account['account_number'], "Account Closed", 0, final_balance)
-            print(f"✅ Account {account['account_number']} closed successfully. Final Balance was {final_balance}.")
-    except Exception as e:
-        print(f"An error occurred while closing the account: {e}")
-
-
-# ----------------- Main Menu ----------------- #
+    def branch_manager_report(self):
+        # ... (This function remains largely the same) ...
+        clear_screen()
+        print("\n🏦 Branch Manager Report")
+        print("-----------------------")
+        if not self.accounts:
+            print("No accounts in the bank yet.")
+            return
+        print(f"Total Accounts: {len(self.accounts)}")
+        total_balance = sum(acc.balance for acc in self.accounts.values())
+        print(f"Total Balance in Bank: {total_balance}")
+        print("-----------------------")
+        
+# ----------------- Main Application UI ----------------- #
 
 def main():
-    """Main function to run the banking system menu."""
-    initialize_files()
+    the_bank = Bank(DATABASE_FILE)
+    
     while True:
         clear_screen()
         print("\n===== Banking System Menu =====")
@@ -301,66 +278,80 @@ def main():
         print("3. Branch Manager Report")
         print("4. Exit")
         
-        main_choice = input("Enter choice: ")
+        main_choice = input("Enter choice: ").strip()
 
         if main_choice == "1":
-            create_account()
+            the_bank.create_account()
         elif main_choice == "2":
             acc_no = input("Enter your account number: ").strip()
-            if not acc_no:
-                print("❌ Account number cannot be empty.")
-                input("\nPress Enter to continue...")
-                continue
+            account = the_bank.find_account(acc_no)
             
-            account = find_account(acc_no)
             if not account:
                 print("❌ Account not found.")
-                input("\nPress Enter to continue...")
-                continue
-                
-            if not authenticate_user(account):
-                input("\nPress Enter to continue...")
-                continue
-            
-            # --- Logged-in User Menu ---
-            while True:
-                clear_screen()
-                print(f"\nWelcome, {account['name']} (Acc: {account['account_number']})")
-                print("-------------------------")
-                print("1. Deposit Money")
-                print("2. Withdraw Money")
-                print("3. Check Balance")
-                print("4. Transaction History")
-                print("5. Close Account")
-                print("6. Logout")
-                user_choice = input("Enter choice: ")
+            else:
+                pin = input("Enter your 4-digit PIN: ")
+                if account.authenticate(pin):
+                    # --- Logged-in User Menu ---
+                    while True:
+                        clear_screen()
+                        print(f"\nWelcome, {account.name} (Acc: {account.account_number})")
+                        print("-------------------------")
+                        print("1. Deposit Money")
+                        print("2. Withdraw Money")
+                        print("3. Transfer Money")
+                        print("4. Check Balance")
+                        print("5. Transaction History")
+                        print("6. Close Account")
+                        print("7. Logout")
+                        user_choice = input("Enter choice: ").strip()
 
-                if user_choice == "1":
-                    deposit_money(account)
-                elif user_choice == "2":
-                    withdraw_money(account)
-                elif user_choice == "3":
-                    check_balance(account)
-                elif user_choice == "4":
-                    transaction_history(account)
-                elif user_choice == "5":
-                    close_account(account)
-                    break # Exit user menu after closing account
-                elif user_choice == "6":
-                    print("👋 Logging out...")
-                    break
+                        if user_choice == "1":
+                            try:
+                                amount = int(input("Enter amount to deposit: "))
+                                if account.deposit(amount):
+                                    query = "UPDATE accounts SET balance = ? WHERE account_number = ?"
+                                    if the_bank._commit_change(query, (account.balance, account.account_number)):
+                                        log_transaction(the_bank.cursor, account.account_number, "Deposit", amount, account.balance)
+                                        the_bank.conn.commit()
+                                        print(f"✅ Deposit successful. New Balance: {account.balance}")
+                                    else:
+                                        account.balance -= amount # Rollback in-memory
+                            except ValueError:
+                                print("❌ Invalid amount.")
+                        elif user_choice == "2":
+                            try:
+                                amount = int(input("Enter amount to withdraw: "))
+                                if account.withdraw(amount):
+                                    query = "UPDATE accounts SET balance = ? WHERE account_number = ?"
+                                    if the_bank._commit_change(query, (account.balance, account.account_number)):
+                                        log_transaction(the_bank.cursor, account.account_number, "Withdrawal", amount, account.balance)
+                                        the_bank.conn.commit()
+                                        print(f"✅ Withdrawal successful. New Balance: {account.balance}")
+                                    else:
+                                        account.balance += amount # Rollback in-memory
+                            except ValueError:
+                                print("❌ Invalid amount.")
+                        elif user_choice == "3":
+                            the_bank.transfer_money(account)
+                        elif user_choice == "4":
+                            print(f"💰 Current Balance: {account.balance}")
+                        elif user_choice == "5":
+                            display_transaction_history(the_bank.cursor, account.account_number)
+                        elif user_choice == "6":
+                            the_bank.close_account(account)
+                            break
+                        elif user_choice == "7":
+                            print("👋 Logging out...")
+                            break
+                        else:
+                            print("❌ Invalid choice.")
+                        input("\nPress Enter to continue...")
                 else:
-                    print("❌ Invalid choice.")
-                
-                # Refresh account data in case of balance changes
-                account = find_account(acc_no) 
-                if not account: # If account was closed
-                    break
-                input("\nPress Enter to continue...")
-
+                    print("❌ Authentication failed. Incorrect PIN.")
         elif main_choice == "3":
-            branch_manager_report()
+            the_bank.branch_manager_report()
         elif main_choice == "4":
+            the_bank.conn.close()
             print("👋 Thank you for using the Banking System!")
             break
         else:
@@ -368,5 +359,26 @@ def main():
         
         input("\nPress Enter to return to the main menu...")
 
+def display_transaction_history(cursor, acc_no):
+    print("\n📜 Transaction History:")
+    try:
+        cursor.execute(
+            "SELECT * FROM transactions WHERE account_number = ? ORDER BY timestamp DESC",
+            (acc_no,)
+        )
+        transactions = cursor.fetchall()
+        if not transactions:
+            print("  No transactions found for this account.")
+            return
+
+        for row in transactions:
+            print(f"  - Time: {row['timestamp']}")
+            print(f"    Type: {row['transaction_type']}, Amount: {row['amount']}, Balance: {row['current_balance']}")
+            if row['details']:
+                print(f"    Details: {row['details']}")
+    except sqlite3.Error as e:
+        print(f"Could not retrieve transaction history: {e}")
+
 if __name__ == "__main__":
     main()
+
